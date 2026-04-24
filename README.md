@@ -142,7 +142,7 @@ BoneMTL/
 ## Citation
 
 ```bibtex
-@article{bonemtl2025,
+@article{bonemtl,
   title  = {Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images},
   author = {Do Tran Minh Nhat},
 }
