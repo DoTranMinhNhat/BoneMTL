@@ -6,12 +6,13 @@ import pandas as pd
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader
+from torch.optim.swa_utils import AveragedModel, SWALR, update_bn
 
 from src.dataset import BTXRDDataset
 from src.model   import BoneMTL
 from src.losses  import MultiTaskLoss
 from src.trainer import train
-from src.utils   import load_config, set_seed, get_device
+from src.utils   import load_config, set_seed, get_device, load_checkpoint
 
 
 def build_transforms(cfg: dict):
@@ -19,10 +20,24 @@ def build_transforms(cfg: dict):
     sz, mean, std = cfg['data']['img_size'], cfg['data']['mean'], cfg['data']['std']
     train_tf = A.Compose([
         A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.3),
+        A.RandomRotate90(p=0.3),
+        A.ShiftScaleRotate(
+            shift_limit=0.1, scale_limit=0.2,
+            rotate_limit=30, p=0.5
+        ),
         A.RandomBrightnessContrast(
             brightness_limit=0.2, contrast_limit=0.2, p=0.5
         ),
         A.GaussNoise(std_range=(0.01, 0.05), p=0.3),
+        A.ElasticTransform(p=0.3),
+        A.GridDistortion(p=0.3),
+        A.CoarseDropout(
+            num_holes_range=(1, 8),
+            hole_height_range=(16, 32),
+            hole_width_range=(16, 32),
+            p=0.3,
+        ),
         A.Resize(sz, sz),
         A.Normalize(mean=mean, std=std),
         ToTensorV2(),
@@ -84,20 +99,54 @@ def main():
         lambda_tier2     = cfg['training']['lambda_tier2'],
         lambda_tier3     = cfg['training']['lambda_tier3'],
         lambda_seg       = cfg['training']['lambda_seg'],
+        focal_gamma      = cfg['training']['focal_gamma'],
+        lambda_aux       = cfg['training']['lambda_aux'],
         device           = device,
     )
+
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr           = cfg['training']['learning_rate'],
         weight_decay = cfg['training']['weight_decay'],
     )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode='min', patience=5, factor=0.5,
+
+    # Cosine Annealing với warm restarts
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer,
+        T_0    = cfg['training']['cosine_t0'],
+        T_mult = cfg['training']['cosine_tmult'],
+        eta_min= cfg['training']['cosine_eta_min'],
     )
+
+    # SWA — average weights từ epoch swa_start trở đi
+    swa_model = AveragedModel(model)
+    swa_start = cfg['training']['swa_start']
+    swa_scheduler = SWALR(
+        optimizer,
+        swa_lr = cfg['training']['swa_lr'],
+        anneal_epochs = 5,
+    )
+
+    # Resume
+    last_path   = os.path.join(cfg['checkpoint']['save_dir'], 'last.pth')
+    best_path   = os.path.join(cfg['checkpoint']['save_dir'], 'best.pth')
+    start_epoch = 0
+
+    if os.path.exists(last_path):
+        start_epoch, metrics = load_checkpoint(last_path, model, optimizer)
+        print(f"Resumed from last.pth epoch {start_epoch} "
+              f"(val_dice: {metrics.get('dice', 'N/A')})")
+    elif os.path.exists(best_path):
+        start_epoch, metrics = load_checkpoint(best_path, model, optimizer)
+        print(f"Resumed from best.pth epoch {start_epoch} "
+              f"(val_dice: {metrics.get('dice', 'N/A')})")
 
     history = train(
         model, train_loader, val_loader,
-        criterion, optimizer, scheduler, device, cfg,
+        criterion, optimizer, scheduler,
+        swa_model, swa_scheduler, swa_start,
+        device, cfg,
+        start_epoch=start_epoch,
     )
 
     os.makedirs('results', exist_ok=True)

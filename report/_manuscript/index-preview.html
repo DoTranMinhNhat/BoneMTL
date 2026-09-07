@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+    <meta charset="utf-8">
+    <meta name="generator" content="quarto-1.10.18">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+    <meta name="author" content="Do Tran Minh Nhat">
+    <meta name="dcterms.date" content="2026-09-01">
+
+    <title>BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images</title>
+    <style>
+      /* Default styles provided by pandoc.
+      ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+      */
+      span.smallcaps{font-variant: small-caps;}
+      div.columns{display: flex; gap: 1.5em;}
+      div.column{flex: auto;}
+      @media screen {
+      div.columns{gap: min(4vw, 1.5em);}
+      div.column{overflow-x: auto;}
+      }
+      div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+      ul.task-list{list-style: none;}
+      ul.task-list li input[type="checkbox"] {
+        width: 0.8em;
+        margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+        vertical-align: middle;
+      }
+      /* CSS for syntax highlighting */
+      html { -webkit-text-size-adjust: 100%; }
+      pre > code.sourceCode { white-space: pre; position: relative; }
+      pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+      pre > code.sourceCode > span:empty { height: 1.2em; }
+      .sourceCode { overflow: visible; }
+      code.sourceCode > span { color: inherit; text-decoration: inherit; }
+      div.sourceCode { margin: 1em 0; }
+      pre.sourceCode { margin: 0; }
+      @media screen {
+      div.sourceCode { overflow: auto; }
+      }
+      @media print {
+      pre > code.sourceCode { white-space: pre-wrap; }
+      pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+      }
+      pre.numberSource code
+        { counter-reset: source-line 0; }
+      pre.numberSource code > span
+        { position: relative; left: -4em; counter-increment: source-line; }
+      pre.numberSource code > span > a:first-child::before
+        { content: counter(source-line);
+          position: relative; left: -1em; text-align: right; vertical-align: baseline;
+          border: none; display: inline-block;
+          -webkit-touch-callout: none; -webkit-user-select: none;
+          -khtml-user-select: none; -moz-user-select: none;
+          -ms-user-select: none; user-select: none;
+          padding: 0 4px; width: 4em;
+        }
+      pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+      div.sourceCode
+        {   }
+      @media screen {
+      pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+      }
+      /* CSS for citations */
+      div.csl-bib-body { }
+      div.csl-entry {
+        clear: both;
+      }
+      .hanging-indent div.csl-entry {
+        margin-left:2em;
+        text-indent:-2em;
+      }
+      div.csl-left-margin {
+        min-width:2em;
+        float:left;
+      }
+      div.csl-right-inline {
+        margin-left:2em;
+        padding-left:1em;
+      }
+      div.csl-indent {
+        margin-left: 2em;
+      }    </style>
+
+    <style>
+      body.hypothesis-enabled #quarto-embed-header {
+        padding-right: 36px;
+      }
+
+      #quarto-embed-header {
+        height: 3em;
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: solid 1px;
+      }
+
+      #quarto-embed-header h6 {
+        font-size: 1.1em;
+        padding-top: 0.6em;
+        margin-left: 1em;
+        margin-right: 1em;
+        font-weight: 400;
+      }
+
+      #quarto-embed-header a.quarto-back-link,
+      #quarto-embed-header a.quarto-download-embed {
+        font-size: 0.8em;
+        margin-top: 1em;
+        margin-bottom: 1em;
+        margin-left: 1em;
+        margin-right: 1em;
+      }
+
+      .quarto-back-container {
+        padding-left: 0.5em;
+        display: flex;
+      }
+
+      .headroom {
+          will-change: transform;
+          transition: transform 200ms linear;
+      }
+
+      .headroom--pinned {
+          transform: translateY(0%);
+      }
+
+      .headroom--unpinned {
+          transform: translateY(-100%);
+      }      
+    </style>
+
+    <script>
+    window.document.addEventListener("DOMContentLoaded", function () {
+
+      var header = window.document.querySelector("#quarto-embed-header");
+      const titleBannerEl = window.document.querySelector("body > #title-block-header");
+      if (titleBannerEl) {
+        titleBannerEl.style.paddingTop = header.clientHeight + "px";
+      }
+      const contentEl = window.document.getElementById('quarto-content');
+      for (const child of contentEl.children) {
+        child.style.paddingTop = header.clientHeight + "px";
+        child.style.marginTop = "1em";
+      }
+
+      // Use the article root if the `back` call doesn't work. This isn't perfect
+      // but should typically work
+      window.quartoBackToArticle = () => {
+        var currentUrl = window.location.href;
+        window.history.back();
+        setTimeout(() => {
+            // if location was not changed in 100 ms, then there is no history back
+            if(currentUrl === window.location.href){              
+                // redirect to site root
+                window.location.href = "index.html";
+            }
+        }, 100);
+      }
+
+      const headroom = new window.Headroom(header, {
+        tolerance: 5,
+        onPin: function () {
+        },
+        onUnpin: function () {
+        },
+      });
+      headroom.init();
+    });
+    </script>
+
+    
+<script src="site_libs/manuscript-notebook/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-62e2d20df198e8a01bb734742f2e28cf.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
+     <script async="" src="https://hypothes.is/embed.js"></script>
+<script>
+  window.document.addEventListener("DOMContentLoaded", function (_event) {
+    document.body.classList.add('hypothesis-enabled');
+  });
+</script>   <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script> 
+      <meta name="citation_title" content="BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images">
+<meta name="citation_author" content="Do Tran Minh Nhat">
+<meta name="citation_publication_date" content="2026-09-01">
+<meta name="citation_cover_date" content="2026-09-01">
+<meta name="citation_year" content="2026">
+<meta name="citation_online_date" content="2026-09-01">
+<meta name="citation_language" content="en">
+<meta name="citation_reference" content="citation_title=Deep residual learning for image recognition;,citation_author=Kaiming He;,citation_author=Xiangyu Zhang;,citation_author=Shaoqing Ren;,citation_author=Jian Sun;,citation_publication_date=2016;,citation_cover_date=2016;,citation_year=2016;,citation_conference_title=CVPR;">
+<meta name="citation_reference" content="citation_title=U-net: Convolutional networks for biomedical image segmentation;,citation_author=Olaf Ronneberger;,citation_author=Philipp Fischer;,citation_author=Thomas Brox;,citation_publication_date=2015;,citation_cover_date=2015;,citation_year=2015;,citation_conference_title=MICCAI;">
+<meta name="citation_reference" content="citation_title=Focal loss for dense object detection;,citation_author=Tsung-Yi Lin;,citation_author=Priya Goyal;,citation_author=Ross Girshick;,citation_author=Kaiming He;,citation_author=Piotr Dollár;,citation_publication_date=2017;,citation_cover_date=2017;,citation_year=2017;,citation_conference_title=ICCV;">
+</head>
+
+  <body class="quarto-notebook quarto-light">
+    <div id="quarto-embed-header" class="headroom fixed-top bg-primary">
+      
+      <a onclick="window.quartoBackToArticle(); return false;" class="btn btn-primary quarto-back-link" href=""><i class="bi bi-caret-left"></i> Back to Article</a>
+      <h6><i class="bi bi-journal-code"></i> Article Notebook</h6>
+
+            <a href="./index.qmd" class="btn btn-primary quarto-download-embed" download="index.qmd">Download Source</a>
+          </div>
+
+     <header id="title-block-header" class="quarto-title-block default toc-left page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images</h1>
+          </div>
+
+    
+    <div class="quarto-title-meta-container">
+      <div class="quarto-title-meta-column-start">
+        
+        <div class="quarto-title-meta">
+
+                <div>
+            <div class="quarto-title-meta-heading">Author</div>
+            <div class="quarto-title-meta-contents">
+                        <p>Do Tran Minh Nhat </p>
+                      </div>
+          </div>
+                
+                <div>
+            <div class="quarto-title-meta-heading">Published</div>
+            <div class="quarto-title-meta-contents">
+              <p class="date">September 1, 2026</p>
+            </div>
+          </div>
+          
+                
+              </div>
+      </div>
+      <div class="quarto-title-meta-column-end quarto-other-formats-target">
+      </div>
+    </div>
+
+
+
+    <div class="quarto-other-links-text-target">
+    </div>  </div>
+</header><div id="quarto-content" class="page-columns page-rows-contents page-layout-article toc-left">
+<div id="quarto-sidebar-toc-left" class="sidebar toc-left">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#abstract" id="toc-abstract" class="nav-link active" data-scroll-target="#abstract"><span class="header-section-number">1</span> Abstract</a></li>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link" data-scroll-target="#introduction"><span class="header-section-number">2</span> Introduction</a>
+  <ul class="collapse">
+  <li><a href="#clinical-context" id="toc-clinical-context" class="nav-link" data-scroll-target="#clinical-context"><span class="header-section-number">2.1</span> Clinical Context</a></li>
+  <li><a href="#motivation-for-ai" id="toc-motivation-for-ai" class="nav-link" data-scroll-target="#motivation-for-ai"><span class="header-section-number">2.2</span> Motivation for AI</a></li>
+  <li><a href="#contributions" id="toc-contributions" class="nav-link" data-scroll-target="#contributions"><span class="header-section-number">2.3</span> Contributions</a></li>
+  </ul></li>
+  <li><a href="#background-preliminaries" id="toc-background-preliminaries" class="nav-link" data-scroll-target="#background-preliminaries"><span class="header-section-number">3</span> Background &amp; Preliminaries</a>
+  <ul class="collapse">
+  <li><a href="#convolutional-neural-networks" id="toc-convolutional-neural-networks" class="nav-link" data-scroll-target="#convolutional-neural-networks"><span class="header-section-number">3.1</span> Convolutional Neural Networks</a></li>
+  <li><a href="#resnet-and-skip-connections" id="toc-resnet-and-skip-connections" class="nav-link" data-scroll-target="#resnet-and-skip-connections"><span class="header-section-number">3.2</span> ResNet and Skip Connections</a></li>
+  <li><a href="#u-net-architecture" id="toc-u-net-architecture" class="nav-link" data-scroll-target="#u-net-architecture"><span class="header-section-number">3.3</span> U-Net Architecture</a></li>
+  <li><a href="#multi-task-learning" id="toc-multi-task-learning" class="nav-link" data-scroll-target="#multi-task-learning"><span class="header-section-number">3.4</span> Multi-task Learning</a></li>
+  <li><a href="#loss-functions" id="toc-loss-functions" class="nav-link" data-scroll-target="#loss-functions"><span class="header-section-number">3.5</span> Loss Functions</a></li>
+  <li><a href="#evaluation-metrics" id="toc-evaluation-metrics" class="nav-link" data-scroll-target="#evaluation-metrics"><span class="header-section-number">3.6</span> Evaluation Metrics</a></li>
+  </ul></li>
+  <li><a href="#dataset-btxrd" id="toc-dataset-btxrd" class="nav-link" data-scroll-target="#dataset-btxrd"><span class="header-section-number">4</span> Dataset — BTXRD</a>
+  <ul class="collapse">
+  <li><a href="#description" id="toc-description" class="nav-link" data-scroll-target="#description"><span class="header-section-number">4.1</span> Description</a></li>
+  <li><a href="#data-split" id="toc-data-split" class="nav-link" data-scroll-target="#data-split"><span class="header-section-number">4.2</span> Data Split</a></li>
+  <li><a href="#three-tier-label-hierarchy" id="toc-three-tier-label-hierarchy" class="nav-link" data-scroll-target="#three-tier-label-hierarchy"><span class="header-section-number">4.3</span> Three-tier Label Hierarchy</a></li>
+  <li><a href="#class-imbalance-problem" id="toc-class-imbalance-problem" class="nav-link" data-scroll-target="#class-imbalance-problem"><span class="header-section-number">4.4</span> Class Imbalance Problem</a></li>
+  </ul></li>
+  <li><a href="#methodology" id="toc-methodology" class="nav-link" data-scroll-target="#methodology"><span class="header-section-number">5</span> Methodology</a>
+  <ul class="collapse">
+  <li><a href="#bonemtl-architecture" id="toc-bonemtl-architecture" class="nav-link" data-scroll-target="#bonemtl-architecture"><span class="header-section-number">5.1</span> BoneMTL Architecture</a></li>
+  <li><a href="#multi-task-loss" id="toc-multi-task-loss" class="nav-link" data-scroll-target="#multi-task-loss"><span class="header-section-number">5.2</span> Multi-task Loss</a></li>
+  <li><a href="#training-strategy" id="toc-training-strategy" class="nav-link" data-scroll-target="#training-strategy"><span class="header-section-number">5.3</span> Training Strategy</a></li>
+  </ul></li>
+  <li><a href="#experiments" id="toc-experiments" class="nav-link" data-scroll-target="#experiments"><span class="header-section-number">6</span> Experiments</a>
+  <ul class="collapse">
+  <li><a href="#implementation-details" id="toc-implementation-details" class="nav-link" data-scroll-target="#implementation-details"><span class="header-section-number">6.1</span> Implementation Details</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results"><span class="header-section-number">6.2</span> Results</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
+</div>
+<main class="content quarto-banner-title-block" id="quarto-document-content">      
+
+       <section id="abstract" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="abstract"><span class="header-section-number">1</span> Abstract</h2>
+<p>Bone tumor diagnosis from X-ray images is a challenging clinical task requiring simultaneous lesion detection, malignancy assessment, and tumor type identification. We present <strong>BoneMTL</strong>, a multi-task deep learning framework that jointly performs pixel-level segmentation and three-tier hierarchical classification on the BTXRD dataset. Our model uses a shared ResNet50 encoder with a U-Net decoder for segmentation and three classification heads for tumor detection, malignancy grading, and tumor type identification. We replace standard CrossEntropy with Focal Loss for the severely imbalanced 9-class Tier 3 classification and increase the segmentation loss weight to <span class="math inline">\(\lambda_{seg}=2.0\)</span>. Experiments show improvements across all metrics compared to the single-loss baseline.</p>
+<hr>
+</section>
+<section id="introduction" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="introduction"><span class="header-section-number">2</span> Introduction</h2>
+<section id="clinical-context" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="clinical-context"><span class="header-section-number">2.1</span> Clinical Context</h3>
+<p>Bone tumors affect patients of all ages and range from benign lesions requiring observation to aggressive malignancies demanding immediate intervention. Radiologists must answer three questions from a single X-ray:</p>
+<ol type="1">
+<li><strong>Is there a tumor?</strong> (detection)</li>
+<li><strong>Is it benign or malignant?</strong> (malignancy grading)</li>
+<li><strong>What type of tumor is it?</strong> (fine-grained classification)</li>
+</ol>
+<p>These questions form a natural hierarchy — answering (2) only makes sense if (1) is positive, and (3) refines (2) further.</p>
+</section>
+<section id="motivation-for-ai" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="motivation-for-ai"><span class="header-section-number">2.2</span> Motivation for AI</h3>
+<p>Manual reading of bone X-rays is time-consuming, subjective, and requires specialized expertise. Deep learning has shown strong performance in medical image analysis, but most existing work addresses only one task at a time. Multi-task learning allows a single model to solve all three problems simultaneously, sharing representations and reducing inference cost.</p>
+</section>
+<section id="contributions" class="level3" data-number="2.3">
+<h3 data-number="2.3" class="anchored" data-anchor-id="contributions"><span class="header-section-number">2.3</span> Contributions</h3>
+<ul>
+<li><strong>BoneMTL architecture</strong>: shared ResNet50 encoder with U-Net segmentation decoder and three classification heads</li>
+<li><strong>Hierarchical loss</strong>: combined BCE, Focal Loss, and Dice+BCE losses weighted per task</li>
+<li><strong>Empirical analysis</strong>: ablation study on loss weights and Focal Loss gamma on the Vietnamese BTXRD dataset</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="background-preliminaries" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="background-preliminaries"><span class="header-section-number">3</span> Background &amp; Preliminaries</h2>
+<section id="convolutional-neural-networks" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="convolutional-neural-networks"><span class="header-section-number">3.1</span> Convolutional Neural Networks</h3>
+<p>A Convolutional Neural Network (CNN) applies learned filters to extract spatial features from images. For an input feature map <span class="math inline">\(X \in \mathbb{R}^{C \times H \times W}\)</span>, a convolutional layer computes:</p>
+<p><span class="math display">\[
+Y_{c'} = \sum_{c=1}^{C} W_{c',c} * X_c + b_{c'}
+\]</span></p>
+<p>where <span class="math inline">\(*\)</span> denotes 2D convolution, <span class="math inline">\(W\)</span> are learned weights, and <span class="math inline">\(b\)</span> is a bias term.</p>
+</section>
+<section id="resnet-and-skip-connections" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="resnet-and-skip-connections"><span class="header-section-number">3.2</span> ResNet and Skip Connections</h3>
+<p>Deep networks suffer from <strong>vanishing gradients</strong> — gradients become exponentially small as they propagate through many layers during backpropagation. ResNet <span class="citation" data-cites="he2016deep">(<a href="#ref-he2016deep" role="doc-biblioref">He et al. 2016</a>)</span> solves this with <strong>residual connections</strong>:</p>
+<p><span class="math display">\[
+\mathbf{y} = \mathcal{F}(\mathbf{x}, \{W_i\}) + \mathbf{x}
+\]</span></p>
+<p>The identity shortcut <span class="math inline">\(+\mathbf{x}\)</span> ensures gradients flow directly to earlier layers, enabling training of very deep networks (50-152 layers). In BoneMTL we use ResNet50, which has 4 residual stages producing feature maps at resolutions <span class="math inline">\(\frac{H}{4}, \frac{H}{8}, \frac{H}{16}, \frac{H}{32}\)</span>.</p>
+</section>
+<section id="u-net-architecture" class="level3" data-number="3.3">
+<h3 data-number="3.3" class="anchored" data-anchor-id="u-net-architecture"><span class="header-section-number">3.3</span> U-Net Architecture</h3>
+<p>U-Net <span class="citation" data-cites="ronneberger2015unet">(<a href="#ref-ronneberger2015unet" role="doc-biblioref">Ronneberger et al. 2015</a>)</span> is an encoder-decoder architecture designed for biomedical image segmentation. The key insight is <strong>skip connections</strong> between encoder and decoder at each resolution level:</p>
+<p><span class="math display">\[
+\text{dec}_i = \text{Conv}(\text{concat}[\text{upsample}(\text{dec}_{i+1}),\ \text{enc}_i])
+\]</span></p>
+<p>This allows the decoder to recover fine spatial details lost during downsampling. BoneMTL uses the ResNet50 encoder features as skip connections into a 4-level U-Net decoder.</p>
+</section>
+<section id="multi-task-learning" class="level3" data-number="3.4">
+<h3 data-number="3.4" class="anchored" data-anchor-id="multi-task-learning"><span class="header-section-number">3.4</span> Multi-task Learning</h3>
+<p>Multi-task learning (MTL) trains a single model on multiple related tasks simultaneously. The total loss is a weighted sum:</p>
+<p><span class="math display">\[
+L_{total} = \sum_{t=1}^{T} \lambda_t L_t
+\]</span></p>
+<p>The shared encoder learns representations useful for all tasks, acting as a regularizer and reducing overfitting. The <span class="math inline">\(\lambda_t\)</span> weights control the relative importance of each task.</p>
+</section>
+<section id="loss-functions" class="level3" data-number="3.5">
+<h3 data-number="3.5" class="anchored" data-anchor-id="loss-functions"><span class="header-section-number">3.5</span> Loss Functions</h3>
+<section id="binary-cross-entropy-bce" class="level4" data-number="3.5.1">
+<h4 data-number="3.5.1" class="anchored" data-anchor-id="binary-cross-entropy-bce"><span class="header-section-number">3.5.1</span> Binary Cross-Entropy (BCE)</h4>
+<p>For binary classification with prediction <span class="math inline">\(\hat{y} \in [0,1]\)</span> and label <span class="math inline">\(y \in \{0,1\}\)</span>:</p>
+<p><span class="math display">\[
+L_{BCE} = -[y \log \hat{y} + (1-y) \log(1-\hat{y})]
+\]</span></p>
+<p>For class imbalance (e.g., malignant cases are rare), we use weighted BCE:</p>
+<p><span class="math display">\[
+L_{BCE}^{w} = -[w \cdot y \log \hat{y} + (1-y) \log(1-\hat{y})]
+\]</span></p>
+<p>where <span class="math inline">\(w = \frac{N_{negative}}{N_{positive}}\)</span> upweights the minority class.</p>
+</section>
+<section id="crossentropy" class="level4" data-number="3.5.2">
+<h4 data-number="3.5.2" class="anchored" data-anchor-id="crossentropy"><span class="header-section-number">3.5.2</span> CrossEntropy</h4>
+<p>For multi-class classification with <span class="math inline">\(C\)</span> classes:</p>
+<p><span class="math display">\[
+L_{CE} = -\sum_{c=1}^{C} y_c \log \hat{p}_c
+\]</span></p>
+</section>
+<section id="focal-loss" class="level4" data-number="3.5.3">
+<h4 data-number="3.5.3" class="anchored" data-anchor-id="focal-loss"><span class="header-section-number">3.5.3</span> Focal Loss</h4>
+<p>Focal Loss <span class="citation" data-cites="lin2017focal">(<a href="#ref-lin2017focal" role="doc-biblioref">Lin et al. 2017</a>)</span> addresses class imbalance by down-weighting easy examples:</p>
+<p><span class="math display">\[
+L_{FL} = -\alpha_t (1 - p_t)^\gamma \log(p_t)
+\]</span></p>
+<p>where <span class="math inline">\(p_t\)</span> is the predicted probability for the true class, <span class="math inline">\(\gamma &gt; 0\)</span> is the focusing parameter, and <span class="math inline">\(\alpha_t\)</span> is the class weight. When <span class="math inline">\(\gamma = 0\)</span>, Focal Loss reduces to weighted CrossEntropy. We use <span class="math inline">\(\gamma = 2.0\)</span> for Tier 3.</p>
+<p><strong>Intuition</strong>: easy examples (high <span class="math inline">\(p_t\)</span>) have <span class="math inline">\((1-p_t)^\gamma \approx 0\)</span>, contributing little to the loss. Hard examples (low <span class="math inline">\(p_t\)</span>) have <span class="math inline">\((1-p_t)^\gamma \approx 1\)</span>, contributing fully. This forces the model to focus on difficult, rare classes.</p>
+</section>
+<section id="dice-loss" class="level4" data-number="3.5.4">
+<h4 data-number="3.5.4" class="anchored" data-anchor-id="dice-loss"><span class="header-section-number">3.5.4</span> Dice Loss</h4>
+<p>Dice Loss directly optimizes the Dice coefficient — a measure of overlap between prediction and ground truth:</p>
+<p><span class="math display">\[
+L_{Dice} = 1 - \frac{2|A \cap B| + \epsilon}{|A| + |B| + \epsilon}
+\]</span></p>
+<p><span class="math display">\[
+= 1 - \frac{2\sum_i p_i g_i + \epsilon}{\sum_i p_i + \sum_i g_i + \epsilon}
+\]</span></p>
+<p>where <span class="math inline">\(p_i \in [0,1]\)</span> are predicted probabilities and <span class="math inline">\(g_i \in \{0,1\}\)</span> are ground truth pixels. <span class="math inline">\(\epsilon = 10^{-6}\)</span> prevents division by zero.</p>
+</section>
+<section id="segmentation-loss" class="level4" data-number="3.5.5">
+<h4 data-number="3.5.5" class="anchored" data-anchor-id="segmentation-loss"><span class="header-section-number">3.5.5</span> Segmentation Loss</h4>
+<p>We combine Dice and BCE:</p>
+<p><span class="math display">\[
+L_{seg} = \alpha \cdot L_{Dice} + (1-\alpha) \cdot L_{BCE}, \quad \alpha = 0.5
+\]</span></p>
+<p>Dice captures shape-level accuracy; BCE captures pixel-level accuracy.</p>
+</section>
+</section>
+<section id="evaluation-metrics" class="level3" data-number="3.6">
+<h3 data-number="3.6" class="anchored" data-anchor-id="evaluation-metrics"><span class="header-section-number">3.6</span> Evaluation Metrics</h3>
+<section id="dice-coefficient-and-iou" class="level4" data-number="3.6.1">
+<h4 data-number="3.6.1" class="anchored" data-anchor-id="dice-coefficient-and-iou"><span class="header-section-number">3.6.1</span> Dice Coefficient and IoU</h4>
+<p><span class="math display">\[
+\text{Dice} = \frac{2 \cdot TP}{2 \cdot TP + FP + FN}, \quad
+\text{IoU} = \frac{TP}{TP + FP + FN}
+\]</span></p>
+</section>
+<section id="f1-score-and-auc" class="level4" data-number="3.6.2">
+<h4 data-number="3.6.2" class="anchored" data-anchor-id="f1-score-and-auc"><span class="header-section-number">3.6.2</span> F1 Score and AUC</h4>
+<p><span class="math display">\[
+F1 = \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
+\]</span></p>
+<p>AUC (Area Under the ROC Curve) measures discrimination ability across all thresholds. AUC = 0.5 is random; AUC = 1.0 is perfect.</p>
+<hr>
+</section>
+</section>
+</section>
+<section id="dataset-btxrd" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="dataset-btxrd"><span class="header-section-number">4</span> Dataset — BTXRD</h2>
+<section id="description" class="level3" data-number="4.1">
+<h3 data-number="4.1" class="anchored" data-anchor-id="description"><span class="header-section-number">4.1</span> Description</h3>
+<p>BTXRD is a Vietnamese bone tumor X-ray dataset collected from clinical settings:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>X-ray images (.jpeg)</td>
+<td>3,746</td>
+</tr>
+<tr class="even">
+<td>Segmentation masks (.png)</td>
+<td>1,867</td>
+</tr>
+<tr class="odd">
+<td>Annotations (.json)</td>
+<td>1,867</td>
+</tr>
+</tbody>
+</table>
+<p>Images without masks correspond to no-tumor cases (Tier 1 = 0).</p>
+</section>
+<section id="data-split" class="level3" data-number="4.2">
+<h3 data-number="4.2" class="anchored" data-anchor-id="data-split"><span class="header-section-number">4.2</span> Data Split</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Split</th>
+<th>Images</th>
+<th>Ratio</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Train</td>
+<td>2,622</td>
+<td>70%</td>
+</tr>
+<tr class="even">
+<td>Val</td>
+<td>562</td>
+<td>15%</td>
+</tr>
+<tr class="odd">
+<td>Test</td>
+<td>562</td>
+<td>15%</td>
+</tr>
+</tbody>
+</table>
+<p>Split is stratified with <code>seed=42</code>.</p>
+</section>
+<section id="three-tier-label-hierarchy" class="level3" data-number="4.3">
+<h3 data-number="4.3" class="anchored" data-anchor-id="three-tier-label-hierarchy"><span class="header-section-number">4.3</span> Three-tier Label Hierarchy</h3>
+<p><strong>Tier 1 — Tumor Detection</strong> (binary):</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Class</th>
+<th>Count</th>
+<th>Ratio</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>No tumor</td>
+<td>1,879</td>
+<td>50.1%</td>
+</tr>
+<tr class="even">
+<td>Tumor</td>
+<td>1,867</td>
+<td>49.9%</td>
+</tr>
+</tbody>
+</table>
+<p>Nearly balanced — standard BCE without pos_weight.</p>
+<p><strong>Tier 2 — Malignancy</strong> (binary, tumor cases only):</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Class</th>
+<th>Count</th>
+<th>Ratio</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Benign</td>
+<td>1,525</td>
+<td>81.7%</td>
+</tr>
+<tr class="even">
+<td>Malignant</td>
+<td>342</td>
+<td>18.3%</td>
+</tr>
+</tbody>
+</table>
+<p>Imbalanced — use <code>pos_weight = 4.5</code>.</p>
+<p><strong>Tier 3 — Tumor Type</strong> (9-class, tumor cases only):</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Class</th>
+<th>Count</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Osteochondroma</td>
+<td>754</td>
+<td>0.37</td>
+</tr>
+<tr class="even">
+<td>Multiple osteochondromas</td>
+<td>263</td>
+<td>1.06</td>
+</tr>
+<tr class="odd">
+<td>Simple bone cyst</td>
+<td>206</td>
+<td>1.35</td>
+</tr>
+<tr class="even">
+<td>Giant cell tumor</td>
+<td>93</td>
+<td>3.00</td>
+</tr>
+<tr class="odd">
+<td>Osteofibroma</td>
+<td>44</td>
+<td>6.30</td>
+</tr>
+<tr class="even">
+<td>Synovial osteochondroma</td>
+<td>51</td>
+<td>5.43</td>
+</tr>
+<tr class="odd">
+<td>Other benign</td>
+<td>115</td>
+<td>2.41</td>
+</tr>
+<tr class="even">
+<td>Osteosarcoma</td>
+<td>297</td>
+<td>0.88</td>
+</tr>
+<tr class="odd">
+<td>Other malignant</td>
+<td>45</td>
+<td>5.83</td>
+</tr>
+</tbody>
+</table>
+<p>Severely imbalanced (17:1 ratio). Class weights are inversely proportional to frequency.</p>
+</section>
+<section id="class-imbalance-problem" class="level3" data-number="4.4">
+<h3 data-number="4.4" class="anchored" data-anchor-id="class-imbalance-problem"><span class="header-section-number">4.4</span> Class Imbalance Problem</h3>
+<p>When a dataset has many more samples of one class than another, a naive model learns to always predict the majority class. Solutions used in BoneMTL:</p>
+<ul>
+<li><strong>Weighted loss</strong>: multiply loss of minority class by <span class="math inline">\(w \propto \frac{1}{\text{frequency}}\)</span></li>
+<li><strong>Focal Loss</strong>: down-weight easy majority examples automatically</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="methodology" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="methodology"><span class="header-section-number">5</span> Methodology</h2>
+<section id="bonemtl-architecture" class="level3" data-number="5.1">
+<h3 data-number="5.1" class="anchored" data-anchor-id="bonemtl-architecture"><span class="header-section-number">5.1</span> BoneMTL Architecture</h3>
+<pre><code>Input (3, 256, 256)
+    ↓
+ResNet50 Encoder (pretrained ImageNet, shared)
+    enc0: (64,  128, 128)   — stem
+    enc1: (256,  64,  64)   — stage 1
+    enc2: (512,  32,  32)   — stage 2
+    enc3: (1024, 16,  16)   — stage 3
+    enc4: (2048,  8,   8)   — stage 4
+    ↓                  ↓
+Classification      Segmentation
+    Head               Decoder (U-Net)
+    GAP → 512          dec4, dec3, dec2, dec1, dec0
+    fc_tier1 (1)       seg_out (1, 256, 256)
+    fc_tier2 (1)
+    fc_tier3 (9)
+
+Total parameters: 33,573,372</code></pre>
+<p>The shared encoder extracts features used by both tasks. Shared representations act as implicit regularization — the segmentation task helps the classification task locate tumors, and vice versa.</p>
+</section>
+<section id="multi-task-loss" class="level3" data-number="5.2">
+<h3 data-number="5.2" class="anchored" data-anchor-id="multi-task-loss"><span class="header-section-number">5.2</span> Multi-task Loss</h3>
+<p><span class="math display">\[
+L = \lambda_1 L_{tier1} + \lambda_2 L_{tier2} + \lambda_3 L_{tier3} + \lambda_4 L_{seg}
+\]</span></p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 45%">
+<col style="width: 25%">
+<col style="width: 29%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Loss</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><span class="math inline">\(L_{tier1}\)</span></td>
+<td>BCE</td>
+<td>All samples</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(L_{tier2}\)</span></td>
+<td>Weighted BCE, <span class="math inline">\(w=4.5\)</span></td>
+<td>Tumor samples only</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(L_{tier3}\)</span></td>
+<td>Focal Loss, <span class="math inline">\(\gamma=2.0\)</span></td>
+<td>Tumor samples only</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(L_{seg}\)</span></td>
+<td><span class="math inline">\(0.5 \cdot L_{Dice} + 0.5 \cdot L_{BCE}\)</span></td>
+<td>Masked samples only</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="training-strategy" class="level3" data-number="5.3">
+<h3 data-number="5.3" class="anchored" data-anchor-id="training-strategy"><span class="header-section-number">5.3</span> Training Strategy</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Hyperparameter</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Backbone</td>
+<td>ResNet50 (ImageNet pretrained)</td>
+</tr>
+<tr class="even">
+<td>Optimizer</td>
+<td>Adam</td>
+</tr>
+<tr class="odd">
+<td>Learning rate</td>
+<td><span class="math inline">\(10^{-4}\)</span></td>
+</tr>
+<tr class="even">
+<td>Weight decay</td>
+<td><span class="math inline">\(10^{-4}\)</span></td>
+</tr>
+<tr class="odd">
+<td>Scheduler</td>
+<td>ReduceLROnPlateau (patience=5, factor=0.5)</td>
+</tr>
+<tr class="even">
+<td>Batch size</td>
+<td>8</td>
+</tr>
+<tr class="odd">
+<td>Image size</td>
+<td><span class="math inline">\(256 \times 256\)</span></td>
+</tr>
+<tr class="even">
+<td>Early stopping patience</td>
+<td>10</td>
+</tr>
+<tr class="odd">
+<td><span class="math inline">\(\lambda_1, \lambda_2, \lambda_3\)</span></td>
+<td>1.0</td>
+</tr>
+<tr class="even">
+<td><span class="math inline">\(\lambda_4\)</span> (<span class="math inline">\(\lambda_{seg}\)</span>)</td>
+<td>2.0</td>
+</tr>
+<tr class="odd">
+<td>Focal <span class="math inline">\(\gamma\)</span></td>
+<td>2.0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Augmentation</strong> (training only):</p>
+<ul>
+<li>Horizontal flip (<span class="math inline">\(p=0.5\)</span>)</li>
+<li>Random brightness/contrast (<span class="math inline">\(p=0.5\)</span>)</li>
+<li>Gaussian noise (<span class="math inline">\(p=0.3\)</span>)</li>
+<li>Normalize with ImageNet mean/std</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="experiments" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="experiments"><span class="header-section-number">6</span> Experiments</h2>
+<section id="implementation-details" class="level3" data-number="6.1">
+<h3 data-number="6.1" class="anchored" data-anchor-id="implementation-details"><span class="header-section-number">6.1</span> Implementation Details</h3>
+<ul>
+<li>Framework: PyTorch 2.7.1 + CUDA 11.8</li>
+<li>GPU: NVIDIA GTX 1650 Max-Q (4GB VRAM)</li>
+<li>OS: Windows 11</li>
+</ul>
+</section>
+<section id="results" class="level3" data-number="6.2">
+<h3 data-number="6.2" class="anchored" data-anchor-id="results"><span class="header-section-number">6.2</span> Results</h3>
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="st">'../results/history.json'</span>) <span class="im">as</span> f:</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    history <span class="op">=</span> json.load(f)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>best_val <span class="op">=</span> <span class="bu">max</span>(history[<span class="st">'val'</span>], key<span class="op">=</span><span class="kw">lambda</span> x: x.get(<span class="st">'dice'</span>, <span class="dv">0</span>))</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>best_epoch <span class="op">=</span> history[<span class="st">'val'</span>].index(best_val) <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Best epoch: </span><span class="sc">{</span>best_epoch<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f""</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Metric'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span><span class="st">'Score'</span><span class="sc">:&gt;8}</span><span class="ss">"</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'-'</span><span class="op">*</span><span class="dv">30</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Segmentation Dice'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'dice'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Segmentation IoU'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'iou'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier1 F1'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier1_f1'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier1 AUC'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier1_auc'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier2 F1'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier2_f1'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier2 AUC'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier2_auc'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier3 F1 macro'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier3_f1_macro'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier3 Accuracy'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier3_acc'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-container"><div class="cell-decorator"><pre>In [1]:</pre></div><div id="tbl-results" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="1">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1: Validation set results
+</figcaption>
+<div aria-describedby="tbl-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-stdout">
+<pre><code>Best epoch: 35
+
+Metric                  Score
+------------------------------
+Segmentation Dice      0.4472
+Segmentation IoU       0.3458
+Tier1 F1               0.8110
+Tier1 AUC              0.8857
+Tier2 F1               0.7455
+Tier2 AUC              0.9564
+Tier3 F1 macro         0.3535
+Tier3 Accuracy         0.4574</code></pre>
+</div>
+</div>
+</figure>
+</div></div>
+</section>
+<div id="7f81289d" class="cell markdown">
+<section id="ablation-study" class="level3" data-number="6.3">
+<h3 data-number="6.3" class="anchored" data-anchor-id="ablation-study"><span class="header-section-number">6.3</span> Ablation Study</h3>
+<table class="caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 13%">
+<col style="width: 22%">
+<col style="width: 22%">
+<col style="width: 22%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Config</th>
+<th>Dice</th>
+<th>Tier1 F1</th>
+<th>Tier2 F1</th>
+<th>Tier3 F1</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Baseline (CE, <span class="math inline">\(\lambda_{seg}=1.0\)</span>)</td>
+<td>0.4562</td>
+<td>0.7815</td>
+<td>0.7414</td>
+<td>0.4334</td>
+</tr>
+<tr class="even">
+<td>+ Focal Loss (<span class="math inline">\(\gamma=2.0\)</span>) + <span class="math inline">\(\lambda_{seg}=2.0\)</span>, resume</td>
+<td><strong>0.4740</strong></td>
+<td>0.7946</td>
+<td><strong>0.7963</strong></td>
+<td><strong>0.4526</strong></td>
+</tr>
+<tr class="odd">
+<td>+ Focal Loss, scratch</td>
+<td>0.4472</td>
+<td>0.8110</td>
+<td>0.7455</td>
+<td>0.3535</td>
+</tr>
+</tbody>
+</table>
+<p>Resuming from a strong baseline checkpoint and applying Focal Loss fine-tuning gives the best overall results. Training from scratch with Focal Loss improves Tier1 F1 significantly but underperforms on Dice and Tier3 due to insufficient epochs.</p>
+</section>
+<section id="training-curves" class="level3" data-number="6.4">
+<h3 data-number="6.4" class="anchored" data-anchor-id="training-curves"><span class="header-section-number">6.4</span> Training Curves</h3>
+</section>
+</div>
+<div class="cell-container code-fold"><div class="cell-decorator"><pre>In [2]:</pre></div><div id="cell-fig-curves" class="cell" data-execution_count="2">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="st">'../results/history.json'</span>) <span class="im">as</span> f:</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    history <span class="op">=</span> json.load(f)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>train_loss <span class="op">=</span> [e.get(<span class="st">'loss'</span>, <span class="dv">0</span>) <span class="cf">for</span> e <span class="kw">in</span> history[<span class="st">'train'</span>]]</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>val_loss   <span class="op">=</span> [e.get(<span class="st">'loss'</span>, <span class="dv">0</span>) <span class="cf">for</span> e <span class="kw">in</span> history[<span class="st">'val'</span>]]</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>val_dice   <span class="op">=</span> [e.get(<span class="st">'dice'</span>, <span class="dv">0</span>) <span class="cf">for</span> e <span class="kw">in</span> history[<span class="st">'val'</span>]]</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>fig, (ax1, ax2) <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">4</span>))</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>ax1.plot(train_loss, label<span class="op">=</span><span class="st">'Train Loss'</span>)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>ax1.plot(val_loss,   label<span class="op">=</span><span class="st">'Val Loss'</span>)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>ax1.set_xlabel(<span class="st">'Epoch'</span>)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>ax1.set_ylabel(<span class="st">'Loss'</span>)</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>ax1.set_title(<span class="st">'Loss Curves'</span>)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>ax1.legend()</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>ax2.plot(val_dice, label<span class="op">=</span><span class="st">'Val Dice'</span>, color<span class="op">=</span><span class="st">'green'</span>)</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>ax2.set_xlabel(<span class="st">'Epoch'</span>)</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>ax2.set_ylabel(<span class="st">'Dice'</span>)</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>ax2.set_title(<span class="st">'Validation Dice'</span>)</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>ax2.legend()</span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>plt.savefig(<span class="st">'../results/training_curves.png'</span>, dpi<span class="op">=</span><span class="dv">150</span>)</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-curves" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-curves-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca" class="">
+<a href="index_files/figure-html/fig-curves-output-1.png" class="lightbox" data-gallery="quarto-lightbox-gallery-1" title="Figure&nbsp;1: Training and validation loss over epochs"><img src="index_files/figure-html/fig-curves-output-1.png" width="950" height="374" class="figure-img"></a>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-curves-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Training and validation loss over epochs
+</figcaption>
+</figure>
+</div>
+</div>
+</div></div>
+<div id="3943f905" class="cell markdown">
+<hr>
+<section id="discussion" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="discussion"><span class="header-section-number">7</span> Discussion</h2>
+<section id="what-worked" class="level3" data-number="7.1">
+<h3 data-number="7.1" class="anchored" data-anchor-id="what-worked"><span class="header-section-number">7.1</span> What Worked</h3>
+<p><strong>Focal Loss for Tier 3</strong>: The 17:1 class imbalance in Tier 3 makes standard CrossEntropy ineffective — the model learns to predict only the majority class (osteochondroma). Focal Loss down-weights easy majority examples and forces the model to learn from rare classes, improving F1 macro from 0.4334 to 0.4526.</p>
+<p><strong>Increased <span class="math inline">\(\lambda_{seg}\)</span></strong>: Setting <span class="math inline">\(\lambda_{seg}=2.0\)</span> forces the shared encoder to learn spatially precise features useful for segmentation. This also benefits classification since localization is implicitly learned.</p>
+<p><strong>Pretrained backbone</strong>: ImageNet pretraining provides strong low-level features (edges, textures) that transfer well to X-ray images, significantly reducing training time and improving generalization.</p>
+</section>
+<section id="limitations" class="level3" data-number="7.2">
+<h3 data-number="7.2" class="anchored" data-anchor-id="limitations"><span class="header-section-number">7.2</span> Limitations</h3>
+<ol type="1">
+<li><strong>Segmentation Dice 0.47</strong>: Still far from clinical utility. Dice &gt; 0.65 is typically needed for clinical segmentation tasks.</li>
+<li><strong>Tier 3 F1 0.45</strong>: 9-class classification with severe imbalance remains difficult. More data for rare classes (osteofibroma: 44 cases) would help significantly.</li>
+<li><strong>Single dataset</strong>: Results may not generalize to other hospitals or X-ray equipment.</li>
+<li><strong>No explainability</strong>: Model decisions are not interpretable — a limitation for clinical deployment.</li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="conclusion" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">8</span> Conclusion</h2>
+<p>We presented BoneMTL, a multi-task framework for simultaneous bone tumor segmentation and hierarchical classification. Key findings:</p>
+<ul>
+<li>Multi-task learning with shared ResNet50 encoder effectively combines segmentation and classification</li>
+<li>Focal Loss with <span class="math inline">\(\gamma=2.0\)</span> improves performance on severely imbalanced 9-class Tier 3</li>
+<li>Increasing <span class="math inline">\(\lambda_{seg}=2.0\)</span> improves segmentation without hurting classification</li>
+<li>Fine-tuning from a pretrained checkpoint outperforms training from scratch</li>
+</ul>
+<p>Future work includes Attention U-Net for segmentation, cross-validation for robust evaluation, and Grad-CAM explainability for clinical interpretability.</p>
+<hr>
+</section>
+<section id="references" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="references"><span class="header-section-number">9</span> References</h2>
+<div id="refs" class="references csl-bib-body hanging-indent" role="list">
+<div id="ref-he2016deep" class="csl-entry" role="listitem">
+He, Kaiming, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. 2016. <span>“Deep Residual Learning for Image Recognition.”</span> <em>CVPR</em>.
+</div>
+<div id="ref-lin2017focal" class="csl-entry" role="listitem">
+Lin, Tsung-Yi, Priya Goyal, Ross Girshick, Kaiming He, and Piotr Dollár. 2017. <span>“Focal Loss for Dense Object Detection.”</span> <em>ICCV</em>.
+</div>
+<div id="ref-ronneberger2015unet" class="csl-entry" role="listitem">
+Ronneberger, Olaf, Philipp Fischer, and Thomas Brox. 2015. <span>“U-Net: Convolutional Networks for Biomedical Image Segmentation.”</span> <em>MICCAI</em>.
+</div>
+</div>
+</section>
+</div>
+</section>
+     </main>
+<!-- /main column -->  <script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>  </div> <!-- /content -->  <script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script> 
+  
+</body></html>

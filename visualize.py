@@ -1,6 +1,7 @@
 # visualize.py
 import os
 import torch
+import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -26,6 +27,73 @@ OUTPUT_DIR  = 'results'
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, 'visualization.png')
 
 
+class GradCAM:
+    """
+    Grad-CAM trên enc4 (ResNet50 stage 4) cho classification head.
+    Highlight vùng model chú ý khi predict tier1.
+
+    Reference: Selvaraju et al., Grad-CAM, ICCV 2017
+    """
+
+    def __init__(self, model: BoneMTL):
+        self.model    = model
+        self.gradients = None
+        self.activations = None
+
+        # Hook vào enc4 — feature map cuối encoder
+        self.hook_a = model.enc4.register_forward_hook(self._save_activation)
+        self.hook_g = model.enc4.register_full_backward_hook(self._save_gradient)
+
+    def _save_activation(self, module, input, output):
+        self.activations = output.detach()
+
+    def _save_gradient(self, module, grad_input, grad_output):
+        self.gradients = grad_output[0].detach()
+
+    def __call__(self, image_tensor: torch.Tensor, target: str = 'tier1') -> np.ndarray:
+        """
+        Tính Grad-CAM heatmap cho 1 ảnh.
+
+        Args:
+            image_tensor : (1, 3, H, W) tensor trên device
+            target       : 'tier1' | 'tier2' | 'tier3'
+
+        Returns:
+            heatmap: (H, W) float32 trong [0, 1]
+        """
+        self.model.zero_grad()
+        outputs = self.model(image_tensor)
+
+        # Chọn score để backward
+        if target == 'tier1':
+            score = outputs['tier1'][0, 0]
+        elif target == 'tier2':
+            score = outputs['tier2'][0, 0]
+        else:
+            score = outputs['tier3'][0].max()
+
+        score.backward()
+
+        # Global average pooling trên gradients
+        weights = self.gradients.mean(dim=[2, 3], keepdim=True)  # (1, C, 1, 1)
+
+        # Weighted sum of activation maps
+        cam = (weights * self.activations).sum(dim=1, keepdim=True)  # (1, 1, h, w)
+        cam = F.relu(cam)
+
+        # Normalize về [0, 1]
+        cam = cam.squeeze().cpu().numpy()
+        cam -= cam.min()
+        if cam.max() > 0:
+            cam /= cam.max()
+
+        return cam
+
+    def remove_hooks(self):
+        self.hook_a.remove()
+        self.hook_g.remove()
+
+
 def load_model(cfg, device):
     model = BoneMTL(num_tumor_types=9, pretrained=False).to(device)
     ckpt  = torch.load('checkpoints/best.pth', map_location=device)
@@ -39,7 +107,6 @@ def get_samples(cfg, n):
     data_dir = cfg['data']['data_dir']
     test_df  = pd.read_csv(os.path.join(data_dir, 'test_split.csv'))
 
-    # Ưu tiên ảnh có mask và tumor
     has_mask = test_df['image_id'].apply(
         lambda x: os.path.exists(
             os.path.join(data_dir, 'masks', x.replace('.jpeg', '_mask.png'))
@@ -55,7 +122,7 @@ def get_samples(cfg, n):
 
 
 def run_inference(model, image_np, device, cfg):
-    """Chạy inference trên 1 ảnh numpy, trả về outputs."""
+    """Chạy inference trên 1 ảnh numpy, trả về tensor input và outputs."""
     tf = A.Compose([
         A.Resize(cfg['data']['img_size'], cfg['data']['img_size']),
         A.Normalize(mean=cfg['data']['mean'], std=cfg['data']['std']),
@@ -63,7 +130,8 @@ def run_inference(model, image_np, device, cfg):
     ])
     tensor = tf(image=image_np)['image'].unsqueeze(0).to(device)
     with torch.no_grad():
-        return model(tensor)
+        outputs = model(tensor)
+    return tensor, outputs
 
 
 def make_overlay(image_np, mask_np, alpha=0.4):
@@ -74,14 +142,30 @@ def make_overlay(image_np, mask_np, alpha=0.4):
             (w, h), Image.NEAREST
         )
     )
-    overlay        = image_np.copy().astype(np.float32)
-    red_mask       = mask_rs > 128
-    overlay[red_mask, 0] = np.clip(
-        overlay[red_mask, 0] * (1 - alpha) + 255 * alpha, 0, 255
-    )
-    overlay[red_mask, 1] = overlay[red_mask, 1] * (1 - alpha)
-    overlay[red_mask, 2] = overlay[red_mask, 2] * (1 - alpha)
+    overlay            = image_np.copy().astype(np.float32)
+    red_mask           = mask_rs > 128
+    overlay[red_mask, 0] = np.clip(overlay[red_mask, 0] * (1-alpha) + 255*alpha, 0, 255)
+    overlay[red_mask, 1] = overlay[red_mask, 1] * (1-alpha)
+    overlay[red_mask, 2] = overlay[red_mask, 2] * (1-alpha)
     return overlay.astype(np.uint8)
+
+
+def apply_gradcam_overlay(image_np, cam, alpha=0.5):
+    """Overlay Grad-CAM heatmap lên ảnh gốc."""
+    h, w   = image_np.shape[:2]
+    cam_rs = np.array(
+        Image.fromarray((cam * 255).astype(np.uint8)).resize(
+            (w, h), Image.BILINEAR
+        )
+    ).astype(np.float32) / 255.0
+
+    # Colormap jet
+    colormap = plt.cm.jet(cam_rs)[:, :, :3]  # (H, W, 3) RGB
+    colormap = (colormap * 255).astype(np.uint8)
+
+    img_f    = image_np.astype(np.float32)
+    overlay  = (img_f * (1-alpha) + colormap * alpha).clip(0, 255).astype(np.uint8)
+    return overlay
 
 
 def classification_text(outputs, row):
@@ -117,6 +201,7 @@ def main():
     cfg    = load_config('configs/default.yaml')
     device = get_device()
     model  = load_model(cfg, device)
+    gradcam = GradCAM(model)
 
     data_dir = cfg['data']['data_dir']
     img_dir  = os.path.join(data_dir, 'images')
@@ -125,18 +210,18 @@ def main():
     samples  = get_samples(cfg, N_SAMPLES)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    # Figure: N_SAMPLES hàng × 5 cột
-    # Cột: ảnh gốc | GT mask | Pred mask | Overlay | Classification
+    # Figure: N_SAMPLES hàng × 6 cột
+    # Cột: ảnh gốc | GT mask | Pred mask | Overlay | Grad-CAM | Classification
     fig, axes = plt.subplots(
-        N_SAMPLES, 5,
-        figsize=(20, N_SAMPLES * 4),
-        gridspec_kw={'width_ratios': [1, 1, 1, 1, 1.4]},
+        N_SAMPLES, 6,
+        figsize=(24, N_SAMPLES * 4),
+        gridspec_kw={'width_ratios': [1, 1, 1, 1, 1, 1.4]},
     )
     fig.patch.set_facecolor('#0f0f0f')
 
     col_titles = [
-        'X-ray Input', 'Ground Truth Mask',
-        'Predicted Mask', 'Overlay', 'Classification',
+        'X-ray Input', 'GT Mask', 'Pred Mask',
+        'Seg Overlay', 'Grad-CAM', 'Classification',
     ]
     for j, title in enumerate(col_titles):
         axes[0, j].set_title(
@@ -144,14 +229,12 @@ def main():
         )
 
     for i, (_, row) in enumerate(samples.iterrows()):
-        img_id = row['image_id']
-
-        # Load ảnh gốc
+        img_id   = row['image_id']
         image_np = np.array(
             Image.open(os.path.join(img_dir, img_id)).convert('RGB')
         )
 
-        # Load ground truth mask
+        # Load GT mask
         mask_name = img_id.replace('.jpeg', '_mask.png')
         mask_path = os.path.join(mask_dir, mask_name)
         if os.path.exists(mask_path):
@@ -160,15 +243,27 @@ def main():
         else:
             gt_mask = np.zeros(image_np.shape[:2], dtype=np.uint8)
 
-        # Inference
-        outputs  = run_inference(model, image_np, device, cfg)
+        # Inference (cần gradient cho Grad-CAM)
+        tf = A.Compose([
+            A.Resize(cfg['data']['img_size'], cfg['data']['img_size']),
+            A.Normalize(mean=cfg['data']['mean'], std=cfg['data']['std']),
+            A.pytorch.ToTensorV2(),
+        ])
+        tensor  = tf(image=image_np)['image'].unsqueeze(0).to(device)
+        tensor.requires_grad_(True)
+
+        with torch.no_grad():
+            outputs = model(tensor)
+
+        # Grad-CAM — cần enable grad
+        tensor_grad = tensor.detach().requires_grad_(True)
+        cam = gradcam(tensor_grad, target='tier1')
 
         # Predicted mask
         pred_logit = outputs['mask'][0, 0].cpu().numpy()
         pred_prob  = 1 / (1 + np.exp(-pred_logit))
         pred_mask  = (pred_prob > 0.5).astype(np.uint8)
 
-        # Resize pred mask về kích thước gốc để overlay
         h, w = image_np.shape[:2]
         pred_mask_rs = np.array(
             Image.fromarray(pred_mask * 255).resize((w, h), Image.NEAREST)
@@ -177,81 +272,63 @@ def main():
             Image.fromarray(gt_mask * 255).resize((w, h), Image.NEAREST)
         )
 
-        # Overlay
-        overlay = make_overlay(image_np, pred_mask_rs / 255.0)
+        # Overlay segmentation
+        seg_overlay  = make_overlay(image_np, pred_mask_rs / 255.0)
+        # Overlay Grad-CAM
+        cam_overlay  = apply_gradcam_overlay(image_np, cam)
 
-        ax_style = dict(facecolor='#1a1a1a')
-
-        # Col 0 — ảnh gốc
+        # Plot
         axes[i, 0].imshow(image_np, cmap='gray')
         axes[i, 0].set_ylabel(
-            img_id[:16], color='#aaaaaa', fontsize=8, rotation=0,
-            labelpad=80, va='center',
+            img_id[:16], color='#aaaaaa', fontsize=8,
+            rotation=0, labelpad=80, va='center',
         )
+        axes[i, 1].imshow(gt_mask_rs,   cmap='Blues', vmin=0, vmax=255)
+        axes[i, 2].imshow(pred_mask_rs, cmap='Reds',  vmin=0, vmax=255)
+        axes[i, 3].imshow(seg_overlay)
+        axes[i, 4].imshow(cam_overlay)
 
-        # Col 1 — GT mask
-        axes[i, 1].imshow(gt_mask_rs, cmap='Blues', vmin=0, vmax=255)
-
-        # Col 2 — Predicted mask
-        axes[i, 2].imshow(pred_mask_rs, cmap='Reds', vmin=0, vmax=255)
-
-        # Col 3 — Overlay
-        axes[i, 3].imshow(overlay)
-
-        # Col 4 — Classification text
-        axes[i, 4].set_facecolor('#1a1a1a')
-        cls_text = classification_text(outputs, row)
-
-        # Màu text theo đúng/sai
+        # Classification text
         t1_correct = (
             (torch.sigmoid(outputs['tier1']).item() >= 0.5) == bool(row['tumor'])
         )
         text_color = '#00ff88' if t1_correct else '#ff6666'
-
-        axes[i, 4].text(
-            0.05, 0.5, cls_text,
-            transform = axes[i, 4].transAxes,
-            color     = text_color,
-            fontsize  = 10,
-            va        = 'center',
-            fontfamily= 'monospace',
+        axes[i, 5].set_facecolor('#1a1a1a')
+        axes[i, 5].text(
+            0.05, 0.5, classification_text(outputs, row),
+            transform=axes[i, 5].transAxes,
+            color=text_color, fontsize=10,
+            va='center', fontfamily='monospace',
         )
-        axes[i, 4].axis('off')
+        axes[i, 5].axis('off')
 
-        # Style các ảnh
-        for j in range(4):
+        for j in range(5):
             axes[i, j].set_xticks([])
             axes[i, j].set_yticks([])
             for spine in axes[i, j].spines.values():
                 spine.set_edgecolor('#333333')
 
-    # Legend
     legend_elements = [
         mpatches.Patch(color='#00ff88', label='Tier 1 correct'),
         mpatches.Patch(color='#ff6666', label='Tier 1 incorrect'),
     ]
     fig.legend(
-        handles   = legend_elements,
-        loc       = 'lower center',
-        ncol      = 2,
-        fontsize  = 11,
-        facecolor = '#1a1a1a',
-        labelcolor= 'white',
-        framealpha= 0.8,
+        handles=legend_elements, loc='lower center',
+        ncol=2, fontsize=11, facecolor='#1a1a1a',
+        labelcolor='white', framealpha=0.8,
         bbox_to_anchor=(0.5, 0.005),
     )
-
     plt.suptitle(
         'BoneMTL — Bone Tumor Classification & Segmentation Results',
         color='white', fontsize=16, fontweight='bold', y=1.002,
     )
     plt.tight_layout(pad=1.5)
     fig.savefig(
-        OUTPUT_PATH,
-        dpi=150, bbox_inches='tight',
+        OUTPUT_PATH, dpi=150, bbox_inches='tight',
         facecolor=fig.get_facecolor(),
     )
     plt.close()
+    gradcam.remove_hooks()
     print(f"Saved: {OUTPUT_PATH}")
 
 

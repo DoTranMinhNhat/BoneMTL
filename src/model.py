@@ -6,7 +6,7 @@ import torchvision.models as models
 
 
 class ConvBNReLU(nn.Module):
-    """Conv2d -> BatchNorm2d → ReLU."""
+    """Conv2d -> BatchNorm2d -> ReLU."""
 
     def __init__(self, in_ch: int, out_ch: int, kernel_size: int = 3):
         super().__init__()
@@ -43,7 +43,6 @@ class DecoderBlock(nn.Module):
 
     def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
         x = self.upsample(x)
-        # Xử lý trường hợp size không khớp do padding
         if x.shape != skip.shape:
             x = F.interpolate(
                 x, size=skip.shape[2:], mode='bilinear', align_corners=True,
@@ -58,10 +57,10 @@ class BoneMTL(nn.Module):
     Kiến trúc:
         Shared encoder : ResNet50 pretrained (ImageNet)
         Classification : hierarchical head 3 tầng
-            Tier 1: tumor / no_tumor      (binary)
-            Tier 2: benign / malignant    (binary)
-            Tier 3: 9 loại u cụ thể       (single-label)
-        Segmentation   : U-Net decoder với skip connections
+        Segmentation   : U-Net decoder + Deep Supervision (aux3, aux2)
+
+    Deep Supervision: auxiliary loss tại dec3 và dec2 giúp gradient
+    flow tốt hơn qua decoder trong quá trình train.
 
     Args:
         num_tumor_types : số loại u ở tier 3 (mặc định là 9)
@@ -95,7 +94,7 @@ class BoneMTL(nn.Module):
         self.fc_tier2 = nn.Linear(512, 1)
         self.fc_tier3 = nn.Linear(512, num_tumor_types)
 
-        # Segmentation decoder — U-Net style
+        # Segmentation decoder — U-Net
         self.dec4 = DecoderBlock(2048, 1024, 256)
         self.dec3 = DecoderBlock(256,  512,  128)
         self.dec2 = DecoderBlock(128,  256,  64)
@@ -105,6 +104,10 @@ class BoneMTL(nn.Module):
             ConvBNReLU(32, 16),
         )
         self.seg_out = nn.Conv2d(16, 1, kernel_size=1)
+
+        # Deep Supervision auxiliary heads
+        self.aux3 = nn.Conv2d(128, 1, kernel_size=1)  # từ dec3
+        self.aux2 = nn.Conv2d(64,  1, kernel_size=1)  # từ dec2
 
     def forward(self, x: torch.Tensor) -> dict:
         """
@@ -116,32 +119,41 @@ class BoneMTL(nn.Module):
                 tier1 : (B, 1)        logits
                 tier2 : (B, 1)        logits
                 tier3 : (B, 9)        logits
-                mask  : (B, 1, H, W)  logits
+                mask  : (B, 1, H, W)  logits — main output
+                aux3  : (B, 1, H, W)  logits — auxiliary (training only)
+                aux2  : (B, 1, H, W)  logits — auxiliary (training only)
         """
-        # Encoder forward
+        # Encoder
         e0 = self.enc0(x)
         e1 = self.enc1(self.pool(e0))
         e2 = self.enc2(e1)
         e3 = self.enc3(e2)
         e4 = self.enc4(e3)
 
-        # Classification forward
+        # Classification
         feat  = self.cls_head(self.gap(e4).flatten(1))
         tier1 = self.fc_tier1(feat)
         tier2 = self.fc_tier2(feat)
         tier3 = self.fc_tier3(feat)
 
-        # Segmentation forward
-        seg = self.seg_out(
-            self.dec0(
-                self.dec1(
-                    self.dec2(
-                        self.dec3(
-                            self.dec4(e4, e3), e2
-                        ), e1
-                    ), e0
-                )
-            )
+        # Segmentation decoder
+        d4 = self.dec4(e4, e3)
+        d3 = self.dec3(d4, e2)
+        d2 = self.dec2(d3, e1)
+        d1 = self.dec1(d2, e0)
+        seg = self.seg_out(self.dec0(d1))
+
+        # Auxiliary outputs — upsample về input size
+        aux3 = F.interpolate(
+            self.aux3(d3), size=x.shape[2:], mode='bilinear', align_corners=True
+        )
+        aux2 = F.interpolate(
+            self.aux2(d2), size=x.shape[2:], mode='bilinear', align_corners=True
         )
 
-        return {'tier1': tier1, 'tier2': tier2, 'tier3': tier3, 'mask': seg}
+        return {
+            'tier1': tier1, 'tier2': tier2, 'tier3': tier3,
+            'mask':  seg,
+            'aux3':  aux3,
+            'aux2':  aux2,
+        }
