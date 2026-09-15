@@ -143,17 +143,21 @@ class BoneMTL(nn.Module):
         d1 = self.dec1(d2, e0)
         seg = self.seg_out(self.dec0(d1))
 
-        # Auxiliary outputs — upsample về input size
-        aux3 = F.interpolate(
-            self.aux3(d3), size=x.shape[2:], mode='bilinear', align_corners=True
-        )
-        aux2 = F.interpolate(
-            self.aux2(d2), size=x.shape[2:], mode='bilinear', align_corners=True
-        )
+        # Auxiliary outputs — chỉ tính khi training, inference dùng zeros
+        if self.training:
+            aux3 = F.interpolate(
+                self.aux3(d3), size=x.shape[2:], mode='bilinear', align_corners=True
+            )
+            aux2 = F.interpolate(
+                self.aux2(d2), size=x.shape[2:], mode='bilinear', align_corners=True
+            )
+        else:
+            aux3 = torch.zeros_like(seg)
+            aux2 = torch.zeros_like(seg)
 
         return {
             'tier1': tier1, 'tier2': tier2, 'tier3': tier3,
-            'mask':  seg,
-            'aux3':  aux3,
-            'aux2':  aux2,
+            'mask': seg,
+            'aux3': aux3,
+            'aux2': aux2,
         }

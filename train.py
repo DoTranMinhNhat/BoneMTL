@@ -19,6 +19,7 @@ def build_transforms(cfg: dict):
     """Tạo augmentation pipeline cho train và val."""
     sz, mean, std = cfg['data']['img_size'], cfg['data']['mean'], cfg['data']['std']
     train_tf = A.Compose([
+        A.Resize(sz, sz),
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.3),
         A.RandomRotate90(p=0.3),
@@ -38,7 +39,6 @@ def build_transforms(cfg: dict):
             hole_width_range=(16, 32),
             p=0.3,
         ),
-        A.Resize(sz, sz),
         A.Normalize(mean=mean, std=std),
         ToTensorV2(),
     ], additional_targets={'mask': 'mask'})
@@ -110,12 +110,8 @@ def main():
         weight_decay = cfg['training']['weight_decay'],
     )
 
-    # Cosine Annealing với warm restarts
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0    = cfg['training']['cosine_t0'],
-        T_mult = cfg['training']['cosine_tmult'],
-        eta_min= cfg['training']['cosine_eta_min'],
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', patience=5, factor=0.5,
     )
 
     # SWA — average weights từ epoch swa_start trở đi

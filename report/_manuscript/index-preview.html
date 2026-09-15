@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
     <meta name="author" content="Do Tran Minh Nhat">
-    <meta name="dcterms.date" content="2026-09-01">
+    <meta name="dcterms.date" content="2026-09-15">
 
-    <title>BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images</title>
+    <title>BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors</title>
     <style>
       /* Default styles provided by pandoc.
       ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -194,12 +194,12 @@
     document.body.classList.add('hypothesis-enabled');
   });
 </script>   <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js" type="text/javascript"></script> 
-      <meta name="citation_title" content="BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images">
+      <meta name="citation_title" content="BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors">
 <meta name="citation_author" content="Do Tran Minh Nhat">
-<meta name="citation_publication_date" content="2026-09-01">
-<meta name="citation_cover_date" content="2026-09-01">
+<meta name="citation_publication_date" content="2026-09-15">
+<meta name="citation_cover_date" content="2026-09-15">
 <meta name="citation_year" content="2026">
-<meta name="citation_online_date" content="2026-09-01">
+<meta name="citation_online_date" content="2026-09-15">
 <meta name="citation_language" content="en">
 <meta name="citation_reference" content="citation_title=Deep residual learning for image recognition;,citation_author=Kaiming He;,citation_author=Xiangyu Zhang;,citation_author=Shaoqing Ren;,citation_author=Jian Sun;,citation_publication_date=2016;,citation_cover_date=2016;,citation_year=2016;,citation_conference_title=CVPR;">
 <meta name="citation_reference" content="citation_title=U-net: Convolutional networks for biomedical image segmentation;,citation_author=Olaf Ronneberger;,citation_author=Philipp Fischer;,citation_author=Thomas Brox;,citation_publication_date=2015;,citation_cover_date=2015;,citation_year=2015;,citation_conference_title=MICCAI;">
@@ -218,7 +218,7 @@
      <header id="title-block-header" class="quarto-title-block default toc-left page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images</h1>
+      <h1 class="title">BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors</h1>
           </div>
 
     
@@ -237,7 +237,7 @@
                 <div>
             <div class="quarto-title-meta-heading">Published</div>
             <div class="quarto-title-meta-contents">
-              <p class="date">September 1, 2026</p>
+              <p class="date">September 15, 2026</p>
             </div>
           </div>
           
@@ -721,12 +721,24 @@ L = \lambda_1 L_{tier1} + \lambda_2 L_{tier2} + \lambda_3 L_{tier3} + \lambda_4 
 <td>1.0</td>
 </tr>
 <tr class="even">
-<td><span class="math inline">\(\lambda_4\)</span> (<span class="math inline">\(\lambda_{seg}\)</span>)</td>
+<td><span class="math inline">\(\lambda_{seg}\)</span></td>
 <td>2.0</td>
 </tr>
 <tr class="odd">
 <td>Focal <span class="math inline">\(\gamma\)</span></td>
 <td>2.0</td>
+</tr>
+<tr class="even">
+<td>Deep Supervision <span class="math inline">\(\lambda_{aux}\)</span></td>
+<td>0.4</td>
+</tr>
+<tr class="odd">
+<td>SWA start epoch</td>
+<td>60</td>
+</tr>
+<tr class="even">
+<td>SWA learning rate</td>
+<td><span class="math inline">\(5 \times 10^{-5}\)</span></td>
 </tr>
 </tbody>
 </table>
@@ -754,26 +766,20 @@ L = \lambda_1 L_{tier1} + \lambda_2 L_{tier2} + \lambda_3 L_{tier3} + \lambda_4 
 <h3 data-number="6.2" class="anchored" data-anchor-id="results"><span class="header-section-number">6.2</span> Results</h3>
 <details class="code-fold">
 <summary>Code</summary>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(<span class="st">'../results/history.json'</span>) <span class="im">as</span> f:</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    history <span class="op">=</span> json.load(f)</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>best_val <span class="op">=</span> <span class="bu">max</span>(history[<span class="st">'val'</span>], key<span class="op">=</span><span class="kw">lambda</span> x: x.get(<span class="st">'dice'</span>, <span class="dv">0</span>))</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>best_epoch <span class="op">=</span> history[<span class="st">'val'</span>].index(best_val) <span class="op">+</span> <span class="dv">1</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Best epoch: </span><span class="sc">{</span>best_epoch<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f""</span>)</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Metric'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span><span class="st">'Score'</span><span class="sc">:&gt;8}</span><span class="ss">"</span>)</span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'-'</span><span class="op">*</span><span class="dv">30</span><span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Segmentation Dice'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'dice'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Segmentation IoU'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'iou'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
-<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier1 F1'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier1_f1'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier1 AUC'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier1_auc'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
-<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier2 F1'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier2_f1'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier2 AUC'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier2_auc'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
-<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier3 F1 macro'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier3_f1_macro'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Tier3 Accuracy'</span><span class="sc">:&lt;20}</span><span class="ss"> </span><span class="sc">{</span>best_val<span class="sc">.</span>get(<span class="st">'tier3_acc'</span>, <span class="dv">0</span>)<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Segmentation Dice'</span>:  <span class="fl">0.5391</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Segmentation IoU'</span>:   <span class="fl">0.4258</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Tier1 F1'</span>:           <span class="fl">0.8231</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Tier1 AUC'</span>:          <span class="fl">0.9089</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Tier2 F1'</span>:           <span class="fl">0.7917</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Tier2 AUC'</span>:          <span class="fl">0.9648</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Tier3 F1 macro'</span>:     <span class="fl">0.4563</span>,</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">'Tier3 Accuracy'</span>:     <span class="fl">0.6245</span>,</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'Metric'</span><span class="sc">:&lt;22}</span><span class="ss"> </span><span class="sc">{</span><span class="st">'Score'</span><span class="sc">:&gt;8}</span><span class="ss">"</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'-'</span><span class="op">*</span><span class="dv">32</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> k, v <span class="kw">in</span> results.items():</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>k<span class="sc">:&lt;22}</span><span class="ss"> </span><span class="sc">{</span>v<span class="sc">:&gt;8.4f}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </details>
 <div class="cell-container"><div class="cell-decorator"><pre>In [1]:</pre></div><div id="tbl-results" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="1">
 <figure class="quarto-float quarto-float-tbl figure">
@@ -782,24 +788,22 @@ Table&nbsp;1: Validation set results
 </figcaption>
 <div aria-describedby="tbl-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output cell-output-stdout">
-<pre><code>Best epoch: 35
-
-Metric                  Score
-------------------------------
-Segmentation Dice      0.4472
-Segmentation IoU       0.3458
-Tier1 F1               0.8110
-Tier1 AUC              0.8857
-Tier2 F1               0.7455
-Tier2 AUC              0.9564
-Tier3 F1 macro         0.3535
-Tier3 Accuracy         0.4574</code></pre>
+<pre><code>Metric                    Score
+--------------------------------
+Segmentation Dice        0.5391
+Segmentation IoU         0.4258
+Tier1 F1                 0.8231
+Tier1 AUC                0.9089
+Tier2 F1                 0.7917
+Tier2 AUC                0.9648
+Tier3 F1 macro           0.4563
+Tier3 Accuracy           0.6245</code></pre>
 </div>
 </div>
 </figure>
 </div></div>
 </section>
-<div id="7f81289d" class="cell markdown">
+<div id="8871dcb7" class="cell markdown">
 <section id="ablation-study" class="level3" data-number="6.3">
 <h3 data-number="6.3" class="anchored" data-anchor-id="ablation-study"><span class="header-section-number">6.3</span> Ablation Study</h3>
 <table class="caption-top table table-sm table-striped small">
@@ -828,18 +832,32 @@ Tier3 Accuracy         0.4574</code></pre>
 <td>0.4334</td>
 </tr>
 <tr class="even">
-<td>+ Focal Loss (<span class="math inline">\(\gamma=2.0\)</span>) + <span class="math inline">\(\lambda_{seg}=2.0\)</span>, resume</td>
-<td><strong>0.4740</strong></td>
-<td>0.7946</td>
-<td><strong>0.7963</strong></td>
-<td><strong>0.4526</strong></td>
+<td>+ Focal Loss fix + <span class="math inline">\(\lambda_{seg}=2.0\)</span></td>
+<td>0.4882</td>
+<td>0.8100</td>
+<td>0.8000</td>
+<td>0.3911</td>
 </tr>
 <tr class="odd">
-<td>+ Focal Loss, scratch</td>
-<td>0.4472</td>
-<td>0.8110</td>
-<td>0.7455</td>
-<td>0.3535</td>
+<td>+ Deep Supervision + SWA</td>
+<td>0.4967</td>
+<td>0.8129</td>
+<td>0.8211</td>
+<td>0.3404</td>
+</tr>
+<tr class="even">
+<td>+ Strong Augmentation</td>
+<td>0.5295</td>
+<td>0.8211</td>
+<td>0.7500</td>
+<td>0.4443</td>
+</tr>
+<tr class="odd">
+<td>+ Strong Aug + DS + SWA <strong>(final)</strong></td>
+<td><strong>0.5391</strong></td>
+<td><strong>0.8231</strong></td>
+<td><strong>0.7917</strong></td>
+<td><strong>0.4563</strong></td>
 </tr>
 </tbody>
 </table>
@@ -894,7 +912,7 @@ Figure&nbsp;1: Training and validation loss over epochs
 </div>
 </div>
 </div></div>
-<div id="3943f905" class="cell markdown">
+<div id="4909ebcb" class="cell markdown">
 <hr>
 <section id="discussion" class="level2" data-number="7">
 <h2 data-number="7" class="anchored" data-anchor-id="discussion"><span class="header-section-number">7</span> Discussion</h2>
@@ -920,11 +938,12 @@ Figure&nbsp;1: Training and validation loss over epochs
 <p>We presented BoneMTL, a multi-task framework for simultaneous bone tumor segmentation and hierarchical classification. Key findings:</p>
 <ul>
 <li>Multi-task learning with shared ResNet50 encoder effectively combines segmentation and classification</li>
-<li>Focal Loss with <span class="math inline">\(\gamma=2.0\)</span> improves performance on severely imbalanced 9-class Tier 3</li>
-<li>Increasing <span class="math inline">\(\lambda_{seg}=2.0\)</span> improves segmentation without hurting classification</li>
-<li>Fine-tuning from a pretrained checkpoint outperforms training from scratch</li>
+<li>Fixing Focal Loss double-weighting bug significantly improved Tier 3 F1 from 0.4334 to 0.4563</li>
+<li>Deep Supervision with auxiliary losses at dec3 and dec2 improves gradient flow, boosting Dice from 0.4562 to 0.5391</li>
+<li>Stochastic Weight Averaging (SWA) provides consistent improvements across all metrics at zero inference cost</li>
+<li>Strong augmentation (ElasticTransform, GridDistortion, CoarseDropout) improves generalization on small datasets</li>
 </ul>
-<p>Future work includes Attention U-Net for segmentation, cross-validation for robust evaluation, and Grad-CAM explainability for clinical interpretability.</p>
+<p>Future work includes cross-validation for robust evaluation, larger image resolution (384×384), and threshold optimization per class for Tier 3.</p>
 <hr>
 </section>
 <section id="references" class="level2" data-number="9">

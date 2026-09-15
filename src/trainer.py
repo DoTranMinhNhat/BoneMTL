@@ -2,7 +2,7 @@
 import torch
 import numpy as np
 from tqdm import tqdm
-from torch.optim.swa_utils import AveragedModel, update_bn
+from torch.optim.swa_utils import AveragedModel
 from src.metrics import (
     compute_dice, compute_iou,
     compute_cls_metrics, compute_tier3_metrics,
@@ -11,13 +11,75 @@ from src.metrics import (
 from src.utils import save_checkpoint
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device, epoch):
-    """Train 1 epoch, trả về dict metrics."""
+def mixup_batch(batch: dict, alpha: float = 0.2, device: torch.device = None) -> dict:
+    """
+    Mixup augmentation cho tumor samples trong batch.
+
+    Chỉ áp dụng cho samples có tier1=1 (tumor) — trộn image và tier3 label.
+    tier1 và tier2 không mixup vì là binary label, mixup sẽ làm nhiễu.
+    Segmentation mask cũng được mixup để consistent với image.
+
+    Args:
+        batch : dict batch từ DataLoader
+        alpha : Beta distribution parameter (0.2 là giá trị chuẩn)
+        device: torch.device
+
+    Returns:
+        batch đã được mixup (inplace)
+    """
+    images   = batch['image'].to(device)
+    tier1    = batch['tier1'].squeeze(1)
+    tumor_idx = torch.where(tier1 == 1)[0]
+
+    # Chỉ mixup nếu có ít nhất 2 tumor samples trong batch
+    if len(tumor_idx) < 2:
+        return batch
+
+    lam = np.random.beta(alpha, alpha)
+    lam = max(lam, 1 - lam)  # luôn lấy lambda >= 0.5 để giữ tính chất chính
+
+    # Shuffle tumor indices để tạo cặp mixup
+    perm = tumor_idx[torch.randperm(len(tumor_idx))]
+
+    # Mixup image
+    images[tumor_idx] = (
+        lam * images[tumor_idx] + (1 - lam) * images[perm]
+    )
+    batch['image'] = images
+
+    # Mixup tier3 label (soft label)
+    t3 = batch['tier3'].clone()
+    t3[tumor_idx] = (
+        lam * t3[tumor_idx] + (1 - lam) * t3[perm]
+    )
+    batch['tier3'] = t3
+
+    # Mixup mask nếu có
+    masks    = batch['mask'].to(device)
+    has_mask = batch['has_mask']
+    mix_hm   = has_mask[tumor_idx] & has_mask[perm]
+    if mix_hm.sum() > 0:
+        idx_hm  = tumor_idx[mix_hm]
+        perm_hm = perm[mix_hm]
+        masks[idx_hm] = lam * masks[idx_hm] + (1 - lam) * masks[perm_hm]
+    batch['mask'] = masks
+
+    return batch
+
+
+def train_one_epoch(model, loader, criterion, optimizer,
+                    device, epoch, use_mixup: bool = False,
+                    mixup_alpha: float = 0.2):
+    """Train 1 epoch với optional Mixup, trả về dict metrics."""
     model.train()
     tracker = MetricTracker()
     pbar    = tqdm(loader, desc=f"Epoch {epoch} [Train]", leave=False)
 
     for batch in pbar:
+        # Mixup augmentation cho tumor samples
+        if use_mixup:
+            batch = mixup_batch(batch, alpha=mixup_alpha, device=device)
+
         images  = batch['image'].to(device)
         outputs = model(images)
         losses  = criterion(outputs, batch, device)
@@ -131,17 +193,15 @@ def train(model, train_loader, val_loader, criterion,
           optimizer, scheduler, swa_model, swa_scheduler,
           swa_start, device, cfg, start_epoch=0):
     """
-    Training loop với early stopping, Cosine Annealing, SWA và checkpoint.
-
-    SWA (Stochastic Weight Averaging):
-        Từ epoch swa_start trở đi, average weights model qua các epoch.
-        Cuối training update BatchNorm stats cho SWA model.
-        Thường cải thiện generalization 0.01-0.02 Dice miễn phí.
+    Training loop với early stopping, ReduceLROnPlateau, SWA,
+    Mixup augmentation và checkpoint.
     """
-    epochs   = cfg['training']['epochs']
-    save_dir = cfg['checkpoint']['save_dir']
-    monitor  = cfg['checkpoint']['monitor']
-    patience = 10
+    epochs      = cfg['training']['epochs']
+    save_dir    = cfg['checkpoint']['save_dir']
+    monitor     = cfg['checkpoint']['monitor']
+    patience    = 10
+    use_mixup   = cfg['training'].get('use_mixup', True)
+    mixup_alpha = cfg['training'].get('mixup_alpha', 0.2)
 
     best_score  = -1.0
     no_improve  = 0
@@ -149,25 +209,25 @@ def train(model, train_loader, val_loader, criterion,
     history     = {'train': [], 'val': []}
 
     print(f"Training {epochs} epochs | monitor: {monitor} | "
-          f"patience: {patience} | SWA from epoch: {swa_start}")
+          f"patience: {patience} | SWA from epoch: {swa_start} | "
+          f"Mixup: {use_mixup} (α={mixup_alpha})")
 
     for epoch in range(start_epoch + 1, epochs + 1):
         train_m = train_one_epoch(
-            model, train_loader, criterion, optimizer, device, epoch
+            model, train_loader, criterion, optimizer, device, epoch,
+            use_mixup=use_mixup, mixup_alpha=mixup_alpha,
         )
+        val_m = validate(model, val_loader, criterion, device, epoch)
 
-        # SWA — update averaged model và dùng SWA scheduler
+        # SWA hoặc ReduceLROnPlateau
         if epoch >= swa_start:
             swa_model.update_parameters(model)
             swa_scheduler.step()
-            swa_started = True
+            swa_started    = True
             scheduler_mode = 'SWA'
         else:
-            # Cosine Annealing trước khi SWA
-            scheduler.step()
+            scheduler.step(val_m.get('loss', 0))
             scheduler_mode = f"lr={optimizer.param_groups[0]['lr']:.2e}"
-
-        val_m = validate(model, val_loader, criterion, device, epoch)
 
         print(
             f"Epoch {epoch:>3}/{epochs} | "
@@ -221,16 +281,20 @@ def train(model, train_loader, val_loader, criterion,
             print(f"Early stopping at epoch {epoch}")
             break
 
-    # SWA finalize — update BatchNorm statistics
+    # SWA finalize
     if swa_started:
         print("Updating SWA BatchNorm statistics...")
-        update_bn(train_loader, swa_model, device=device)
+        swa_model.train()
+        with torch.no_grad():
+            for batch in train_loader:
+                images = batch['image'].to(device)
+                swa_model(images)
         save_checkpoint(
             state={
-                'epoch':             epochs,
-                'model_state_dict':  swa_model.module.state_dict(),
-                'metrics':           {},
-                'cfg':               cfg,
+                'epoch':            epochs,
+                'model_state_dict': swa_model.module.state_dict(),
+                'metrics':          {},
+                'cfg':              cfg,
             },
             save_dir=save_dir,
             filename='swa.pth',

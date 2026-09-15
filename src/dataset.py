@@ -13,6 +13,9 @@ TUMOR_COLS = [
     'other bt', 'osteosarcoma', 'other mt',
 ]
 
+# Giới hạn resolution tối đa khi load ảnh — tránh OOM với ảnh gốc quá lớn
+MAX_LOAD_SIZE = 1024
+
 
 class BTXRDDataset(Dataset):
     """
@@ -49,25 +52,42 @@ class BTXRDDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
+    @staticmethod
+    def _load_image(path: str) -> np.ndarray:
+        """Load ảnh RGB, resize về MAX_LOAD_SIZE nếu quá lớn."""
+        pil_img = Image.open(path).convert('RGB')
+        if max(pil_img.size) > MAX_LOAD_SIZE:
+            ratio   = MAX_LOAD_SIZE / max(pil_img.size)
+            new_w   = int(pil_img.size[0] * ratio)
+            new_h   = int(pil_img.size[1] * ratio)
+            pil_img = pil_img.resize((new_w, new_h), Image.BILINEAR)
+        return np.array(pil_img)
+
+    @staticmethod
+    def _load_mask(path: str, ref_shape: tuple) -> np.ndarray:
+        """Load mask PNG, resize về cùng shape với ảnh đã load."""
+        pil_mask = Image.open(path).convert('L')
+        if pil_mask.size != (ref_shape[1], ref_shape[0]):
+            pil_mask = pil_mask.resize(
+                (ref_shape[1], ref_shape[0]), Image.NEAREST
+            )
+        return (np.array(pil_mask) > 128).astype(np.float32)
+
     def __getitem__(self, idx: int) -> dict:
         row    = self.df.iloc[idx]
         img_id = row['image_id']
 
-        # Load ảnh gốc
-        image = np.array(
-            Image.open(os.path.join(self.img_dir, img_id)).convert('RGB')
-        )
+        # Load ảnh gốc — giới hạn MAX_LOAD_SIZE để tránh OOM
+        image = self._load_image(os.path.join(self.img_dir, img_id))
 
         # Load mask định dạng PNG
-        mask_name = img_id.replace('.jpeg', '_mask.png')
+        mask_name = os.path.splitext(img_id)[0] + '_mask.png'
         mask_path = os.path.join(self.mask_dir, mask_name)
 
         if os.path.exists(mask_path):
-            mask     = np.array(Image.open(mask_path).convert('L'))
-            mask     = (mask > 128).astype(np.float32)
+            mask     = self._load_mask(mask_path, image.shape[:2])
             has_mask = True
         else:
-            # Ảnh không có u, tạo mask rỗng
             mask     = np.zeros(image.shape[:2], dtype=np.float32)
             has_mask = False
 

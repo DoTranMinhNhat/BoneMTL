@@ -30,7 +30,7 @@ def main():
 
     # Load model
     model = BoneMTL(num_tumor_types=9, pretrained=False).to(device)
-    ckpt  = torch.load('checkpoints/best.pth', map_location=device)
+    ckpt  = torch.load('checkpoints/swa.pth', map_location=device)
     model.load_state_dict(ckpt['model_state_dict'])
     model.eval()
 

@@ -7,9 +7,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Do Tran Minh Nhat">
-<meta name="dcterms.date" content="2026-09-01">
+<meta name="dcterms.date" content="2026-09-15">
 
-<title>BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images</title>
+<title>BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -101,12 +101,12 @@ window.Quarto = {
 };
 </script>
 
-<meta name="citation_title" content="BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images">
+<meta name="citation_title" content="BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors">
 <meta name="citation_author" content="Do Tran Minh Nhat">
-<meta name="citation_publication_date" content="2026-09-01">
-<meta name="citation_cover_date" content="2026-09-01">
+<meta name="citation_publication_date" content="2026-09-15">
+<meta name="citation_cover_date" content="2026-09-15">
 <meta name="citation_year" content="2026">
-<meta name="citation_online_date" content="2026-09-01">
+<meta name="citation_online_date" content="2026-09-15">
 <meta name="citation_language" content="en">
 <meta name="citation_reference" content="citation_title=Deep residual learning for image recognition;,citation_author=Kaiming He;,citation_author=Xiangyu Zhang;,citation_author=Shaoqing Ren;,citation_author=Jian Sun;,citation_publication_date=2016;,citation_cover_date=2016;,citation_year=2016;,citation_conference_title=CVPR;">
 <meta name="citation_reference" content="citation_title=U-net: Convolutional networks for biomedical image segmentation;,citation_author=Olaf Ronneberger;,citation_author=Philipp Fischer;,citation_author=Thomas Brox;,citation_publication_date=2015;,citation_cover_date=2015;,citation_year=2015;,citation_conference_title=MICCAI;">
@@ -118,7 +118,7 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default toc-left page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors in X-ray Images</h1>
+      <h1 class="title">BoneMTL: Multitask Deep Learning for Classification and Segmentation of Bone Tumors</h1>
           </div>
 
     
@@ -137,7 +137,7 @@ window.Quarto = {
                 <div>
             <div class="quarto-title-meta-heading">Published</div>
             <div class="quarto-title-meta-contents">
-              <p class="date">September 1, 2026</p>
+              <p class="date">September 15, 2026</p>
             </div>
           </div>
           
@@ -635,12 +635,24 @@ L = \lambda_1 L_{tier1} + \lambda_2 L_{tier2} + \lambda_3 L_{tier3} + \lambda_4 
 <td>1.0</td>
 </tr>
 <tr class="even">
-<td><span class="math inline">\(\lambda_4\)</span> (<span class="math inline">\(\lambda_{seg}\)</span>)</td>
+<td><span class="math inline">\(\lambda_{seg}\)</span></td>
 <td>2.0</td>
 </tr>
 <tr class="odd">
 <td>Focal <span class="math inline">\(\gamma\)</span></td>
 <td>2.0</td>
+</tr>
+<tr class="even">
+<td>Deep Supervision <span class="math inline">\(\lambda_{aux}\)</span></td>
+<td>0.4</td>
+</tr>
+<tr class="odd">
+<td>SWA start epoch</td>
+<td>60</td>
+</tr>
+<tr class="even">
+<td>SWA learning rate</td>
+<td><span class="math inline">\(5 \times 10^{-5}\)</span></td>
 </tr>
 </tbody>
 </table>
@@ -673,18 +685,16 @@ Table&nbsp;1: Validation set results
 </figcaption>
 <div aria-describedby="tbl-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output cell-output-stdout">
-<pre><code>Best epoch: 35
-
-Metric                  Score
-------------------------------
-Segmentation Dice      0.4472
-Segmentation IoU       0.3458
-Tier1 F1               0.8110
-Tier1 AUC              0.8857
-Tier2 F1               0.7455
-Tier2 AUC              0.9564
-Tier3 F1 macro         0.3535
-Tier3 Accuracy         0.4574</code></pre>
+<pre><code>Metric                    Score
+--------------------------------
+Segmentation Dice        0.5391
+Segmentation IoU         0.4258
+Tier1 F1                 0.8231
+Tier1 AUC                0.9089
+Tier2 F1                 0.7917
+Tier2 AUC                0.9648
+Tier3 F1 macro           0.4563
+Tier3 Accuracy           0.6245</code></pre>
 </div>
 </div>
 </figure>
@@ -718,18 +728,32 @@ Tier3 Accuracy         0.4574</code></pre>
 <td>0.4334</td>
 </tr>
 <tr class="even">
-<td>+ Focal Loss (<span class="math inline">\(\gamma=2.0\)</span>) + <span class="math inline">\(\lambda_{seg}=2.0\)</span>, resume</td>
-<td><strong>0.4740</strong></td>
-<td>0.7946</td>
-<td><strong>0.7963</strong></td>
-<td><strong>0.4526</strong></td>
+<td>+ Focal Loss fix + <span class="math inline">\(\lambda_{seg}=2.0\)</span></td>
+<td>0.4882</td>
+<td>0.8100</td>
+<td>0.8000</td>
+<td>0.3911</td>
 </tr>
 <tr class="odd">
-<td>+ Focal Loss, scratch</td>
-<td>0.4472</td>
-<td>0.8110</td>
-<td>0.7455</td>
-<td>0.3535</td>
+<td>+ Deep Supervision + SWA</td>
+<td>0.4967</td>
+<td>0.8129</td>
+<td>0.8211</td>
+<td>0.3404</td>
+</tr>
+<tr class="even">
+<td>+ Strong Augmentation</td>
+<td>0.5295</td>
+<td>0.8211</td>
+<td>0.7500</td>
+<td>0.4443</td>
+</tr>
+<tr class="odd">
+<td>+ Strong Aug + DS + SWA <strong>(final)</strong></td>
+<td><strong>0.5391</strong></td>
+<td><strong>0.8231</strong></td>
+<td><strong>0.7917</strong></td>
+<td><strong>0.4563</strong></td>
 </tr>
 </tbody>
 </table>
@@ -778,11 +802,12 @@ Figure&nbsp;1: Training and validation loss over epochs
 <p>We presented BoneMTL, a multi-task framework for simultaneous bone tumor segmentation and hierarchical classification. Key findings:</p>
 <ul>
 <li>Multi-task learning with shared ResNet50 encoder effectively combines segmentation and classification</li>
-<li>Focal Loss with <span class="math inline">\(\gamma=2.0\)</span> improves performance on severely imbalanced 9-class Tier 3</li>
-<li>Increasing <span class="math inline">\(\lambda_{seg}=2.0\)</span> improves segmentation without hurting classification</li>
-<li>Fine-tuning from a pretrained checkpoint outperforms training from scratch</li>
+<li>Fixing Focal Loss double-weighting bug significantly improved Tier 3 F1 from 0.4334 to 0.4563</li>
+<li>Deep Supervision with auxiliary losses at dec3 and dec2 improves gradient flow, boosting Dice from 0.4562 to 0.5391</li>
+<li>Stochastic Weight Averaging (SWA) provides consistent improvements across all metrics at zero inference cost</li>
+<li>Strong augmentation (ElasticTransform, GridDistortion, CoarseDropout) improves generalization on small datasets</li>
 </ul>
-<p>Future work includes Attention U-Net for segmentation, cross-validation for robust evaluation, and Grad-CAM explainability for clinical interpretability.</p>
+<p>Future work includes cross-validation for robust evaluation, larger image resolution (384×384), and threshold optimization per class for Tier 3.</p>
 <hr>
 </section>
 <section id="references" class="level2" data-number="9">

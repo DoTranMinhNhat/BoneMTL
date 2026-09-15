@@ -388,6 +388,32 @@ def main():
         json.dump({'no_tta': no_tta, 'tta': tta_res, 'crf': crf_res}, f, indent=2)
     print("\nSaved: results/test_results.json")
 
+    # Evaluate SWA model
+    swa_path = os.path.join(cfg['checkpoint']['save_dir'], 'swa.pth')
+    if os.path.exists(swa_path):
+        print("\nEvaluating SWA model...")
+        swa_model = BoneMTL(
+            num_tumor_types=cfg['model']['num_classes'],
+            pretrained=False,
+        ).to(device)
+        epoch_swa, _ = load_checkpoint(swa_path, swa_model)
+        print(f"Loaded SWA checkpoint epoch {epoch_swa}")
+
+        swa_loader = DataLoader(
+            BTXRDDataset(test_df, img_dir, mask_dir, test_tf),
+            batch_size=cfg['data']['batch_size'],
+            shuffle=False, num_workers=0,
+        )
+        swa_res = evaluate(swa_model, swa_loader, device)
+        print_results("Test Set — SWA Model", swa_res)
+
+        with open('results/test_results.json', 'w') as f:
+            json.dump({
+                'no_tta': no_tta,
+                'tta': tta_res,
+                'crf': crf_res,
+                'swa': swa_res,
+            }, f, indent=2)
 
 if __name__ == '__main__':
     main()
