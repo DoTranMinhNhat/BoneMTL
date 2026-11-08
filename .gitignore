@@ -1,0 +1,15 @@
+# Data and model weights
+data/
+checkpoints/
+*.pth
+
+# Python
+__pycache__/
+*.py[cod]
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+Thumbs.db

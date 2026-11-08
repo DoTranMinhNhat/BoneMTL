@@ -1,0 +1,16 @@
+# Requires Python 3.11
+# 1. pip install torch==2.7.1 torchvision==0.22.1 --index-url https://download.pytorch.org/whl/cu118
+# 2. pip install -r requirements.txt
+
+torch==2.7.1
+torchvision==0.22.1
+numpy==2.4.3
+pandas==3.0.2
+openpyxl==3.1.5
+Pillow==12.1.1
+albumentations==2.0.8
+scikit-learn==1.8.0
+matplotlib==3.10.8
+seaborn==0.13.2
+pyyaml==6.0.3
+tqdm==4.67.3

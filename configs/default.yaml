@@ -1,0 +1,52 @@
+data:
+  data_dir: ./data
+  img_size: 256
+  batch_size: 8
+  num_workers: 0        # used by train.py only; 0 on Windows
+  seed: 42
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+model:
+  pretrained: true
+  num_classes: 9        # tier 3 tumor types
+
+training:
+  epochs: 80
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+
+  # Loss weights
+  lambda_tier1: 1.0
+  lambda_tier2: 1.0
+  lambda_tier3: 1.0
+  lambda_seg: 2.0
+  lambda_aux: 0.4       
+  focal_gamma: 2.0
+  label_smoothing: 0.1
+
+  swa_start: 60
+  cv_swa_start: 45
+  swa_lr: 0.00005
+
+  use_mixup: false
+  mixup_alpha: 0.2
+
+  # Positive weight for malignant, about the benign / malignant ratio
+  tier2_pos_weight: 4.5
+
+  # Tier 3 class weights, roughly inverse to class frequency
+  tier3_weights:
+    - 0.37   # osteochondroma (754 images)
+    - 1.06   # multiple osteochondromas (263)
+    - 1.35   # simple bone cyst (206)
+    - 3.00   # giant cell tumor (93)
+    - 6.30   # osteofibroma (44)
+    - 5.43   # synovial osteochondroma (51)
+    - 2.41   # other benign (115)
+    - 0.88   # osteosarcoma (297)
+    - 5.83   # other malignant (45)
+
+checkpoint:
+  save_dir: ./checkpoints
+  monitor: val_dice
